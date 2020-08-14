@@ -261,8 +261,13 @@ void ComMediator::progressGOTOCallback(const ropod_ros_msgs::TaskProgressGOTO::C
 
     msg["header"]["type"] = "TASK-STATUS";
     msg["header"]["metamodel"] = "ropod-msg-schema.json";
-    msg["header"]["msgId"] = generateUUID();
-    msg["header"]["timestamp"] = getTimeStamp();
+    zuuid_t * uuid = zuuid_new();
+    const char * uuid_str = zuuid_str_canonical(uuid);
+    msg["header"]["msgId"] = uuid_str;
+    zuuid_destroy (&uuid);
+    char *timestr = zclock_timestr (); // TODO: this is not ISO 8601
+    msg["header"]["timestamp"] = timestr;
+    zstr_free(&timestr);
 
     msg["payload"]["metamodel"] = "ropod-demo-progress-schema.json";
     msg["payload"]["taskId"] = ros_msg->task_id;
@@ -276,7 +281,7 @@ void ComMediator::progressGOTOCallback(const ropod_ros_msgs::TaskProgressGOTO::C
     msg["payload"]["taskProgress"]["actionStatus"]["status"] = ros_msg->status.status_code;
     msg["payload"]["taskProgress"]["area"] = ros_msg->area_name;
 
-    ROS_INFO("Sending task-progress msg to ROPOD group");
+    ROS_INFO("Sending task-progress GO_TO msg to ROPOD");
 
     std::stringstream feedbackMsg("");
     feedbackMsg << msg;
@@ -309,6 +314,8 @@ void ComMediator::progressDOCKCallback(const ropod_ros_msgs::TaskProgressDOCK::C
     msg["payload"]["taskProgress"]["actionStatus"]["module"] = ros_msg->status.module_code;
     msg["payload"]["taskProgress"]["actionStatus"]["status"] = ros_msg->status.status_code;
     msg["payload"]["taskProgress"]["area"] = ros_msg->area_name;
+
+    ROS_INFO("Sending task-progress DOCK msg to ROPOD");
 
     std::stringstream feedbackMsg("");
     feedbackMsg << msg;
@@ -520,6 +527,8 @@ void ComMediator::parseAndPublishTaskMessage(const Json::Value &root)
     // task.start_time = root["payload"]["startTime"].asDouble();
     // task.finish_time = root["payload"]["finishTime"].asDouble();
 
+    task.start_time = root["payload"]["startTime"].asString();
+    task.finish_time = root["payload"]["finishTime"].asString();
     // TODO: This needs a change on the FMS side
     // task.earliest_start_time = root["payload"]["earliest_start_time"].asDouble();
     // task.latest_start_time = root["payload"]["latest_start_time"].asDouble();
@@ -533,7 +542,7 @@ void ComMediator::parseAndPublishTaskMessage(const Json::Value &root)
     int plan_id = -1;
     for (unsigned int pid = 0; pid < plan_list.size(); pid++)
     {
-        if (plan_list[pid]["_id"] == robotName)
+        if (plan_list[pid]["robot"] == robotName)
         {
             plan_id = pid;
         }
